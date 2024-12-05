@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$/Transcription" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/algo biy daalt text classifier/data-classifier-ml" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/comiga-dashboard-v2" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/mobile-biy-daalt" vcs="Git" />
+  </component>
+</project>
