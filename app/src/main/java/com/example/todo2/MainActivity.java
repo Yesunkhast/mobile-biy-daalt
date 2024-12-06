@@ -5,6 +5,7 @@ package com.example.todo2;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 //import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -65,12 +66,15 @@ public class MainActivity extends AppCompatActivity implements OnDialogCloseList
         mList = new ArrayList<>();
         adapter = new ToDoAdapter(MainActivity.this, mList);
 
-        recyclerView.setAdapter(adapter);
+        ItemTouchHelper itemTouchHelper =  new ItemTouchHelper(new TouchHelper(adapter));
+        itemTouchHelper.attachToRecyclerView(recyclerView);
         showData();
+        recyclerView.setAdapter(adapter);
     }
 
     private void showData(){
-        firestore.collection("task").addSnapshotListener(new EventListener<QuerySnapshot>() {
+        query = firestore.collection("task").orderBy("time", Query.Direction.DESCENDING);
+        listenerRegistration = query.addSnapshotListener(new EventListener<QuerySnapshot>() {
             @Override
             public void onEvent(@Nullable QuerySnapshot value, @Nullable FirebaseFirestoreException error) {
                 for(DocumentChange documentChange : value.getDocumentChanges()){
@@ -82,14 +86,16 @@ public class MainActivity extends AppCompatActivity implements OnDialogCloseList
                         adapter.notifyDataSetChanged();
                     }
                 }
-                Collections.reverse(mList);
+                listenerRegistration.remove();
             }
         });
     }
 
     @Override
     public void onDialogClose(DialogInterface dialogInterface) {
-
+        mList.clear();
+        showData();
+        adapter.notifyDataSetChanged();
     }
 
 }

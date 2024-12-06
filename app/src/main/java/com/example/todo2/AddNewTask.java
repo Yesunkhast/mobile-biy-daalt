@@ -1,11 +1,16 @@
 package com.example.todo2;
 
+import static android.app.Activity.RESULT_OK;
+
 import android.app.Activity;
 import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.speech.RecognitionService;
+import android.speech.RecognizerIntent;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -14,6 +19,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,6 +34,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 //import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +52,10 @@ public class AddNewTask  extends BottomSheetDialogFragment {
     private String dueDate = "";
     private String id = "";
     private String dueDateUpdate = "";
+
+    private ImageButton sppechBtn;
+
+    private static final int RECOGNIZER_CODE = 1;
 
     public static AddNewTask newInstance(){
         return new AddNewTask();
@@ -64,26 +75,38 @@ public class AddNewTask  extends BottomSheetDialogFragment {
         setDueDate = view.findViewById(R.id.set_due_tv);
         mTaskEdit = view.findViewById(R.id.task_edittext);
         mSaveBtn = view.findViewById(R.id.save_btn);
+        sppechBtn = view.findViewById(R.id.speech_mic_btn);
+
+        sppechBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Хэлээрэй хө...");
+                startActivityForResult(intent, RECOGNIZER_CODE);
+
+            }
+        });
 
         firestore = FirebaseFirestore.getInstance();
 
-//        boolean isUpdate = false;
-//
-//        final Bundle bundle = getArguments();
-//        if (bundle != null) {
-//            isUpdate = true;
-//            String task = bundle.getString("task");
-//            id = bundle.getString("id");
-//            dueDateUpdate = bundle.getString("due");
-//
-//            mTaskEdit.setText(task);
-//            setDueDate.setText(dueDateUpdate);
-//
-//            if (task.length() > 0) {
-//                mSaveBtn.setEnabled(false);
-//                mSaveBtn.setBackgroundColor(Color.GRAY);
-//            }
-//        }
+        boolean isUpdate = false;
+
+        final Bundle bundle = getArguments();
+        if (bundle != null) {
+            isUpdate = true;
+            String task = bundle.getString("task");
+            id = bundle.getString("id");
+            dueDateUpdate = bundle.getString("due");
+
+            mTaskEdit.setText(task);
+            setDueDate.setText(dueDateUpdate);
+
+            if (task.length() > 0) {
+                mSaveBtn.setEnabled(false);
+                mSaveBtn.setBackgroundColor(Color.GRAY);
+            }
+        }
 
         mTaskEdit.addTextChangedListener(new TextWatcher() {
             @Override
@@ -130,40 +153,58 @@ public class AddNewTask  extends BottomSheetDialogFragment {
             }
         });
 
+        boolean finalIsUpdate = isUpdate;
         mSaveBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
                 String task = mTaskEdit.getText().toString();
 
-                if(task.isEmpty()){
-                    Toast.makeText(context, "Task хоосон байна!!!", Toast.LENGTH_SHORT).show();
+                if(finalIsUpdate){
+                    firestore.collection("task").document(id).update("task", task, "due", dueDate);
+                    Toast.makeText(context, "Таск шинэчлэгдлээ!!!", Toast.LENGTH_SHORT).show();
                 } else {
-                    Map<String, Object> taskMap = new HashMap<>();
 
-                    taskMap.put("task", task);
-                    taskMap.put("due", dueDate);
-                    taskMap.put("status", 0);
+                    if (task.isEmpty()) {
+                        Toast.makeText(context, "Task хоосон байна!!!", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Map<String, Object> taskMap = new HashMap<>();
 
-                    firestore.collection("task").add(taskMap).addOnCompleteListener(new OnCompleteListener<DocumentReference>() {
-                        @Override
-                        public void onComplete(@NonNull Task<DocumentReference> task) {
-                            if(task.isSuccessful()){
-                                Toast.makeText(context, "Task Saved", Toast.LENGTH_SHORT).show();
-                            } else {
-                                Toast.makeText(context, task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                        taskMap.put("task", task);
+                        taskMap.put("due", dueDate);
+                        taskMap.put("status", 0);
+                        taskMap.put("time", FieldValue.serverTimestamp());
+
+                        firestore.collection("task").add(taskMap).addOnCompleteListener(new OnCompleteListener<DocumentReference>() {
+                            @Override
+                            public void onComplete(@NonNull Task<DocumentReference> task) {
+                                if (task.isSuccessful()) {
+                                    Toast.makeText(context, "Task Saved", Toast.LENGTH_SHORT).show();
+                                } else {
+                                    Toast.makeText(context, task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                                }
                             }
-                        }
-                    }).addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
-                        }
-                    });
+                        }).addOnFailureListener(new OnFailureListener() {
+                            @Override
+                            public void onFailure(@NonNull Exception e) {
+                                Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
                 }
                 dismiss();
             }
         });
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode == RECOGNIZER_CODE && resultCode == RESULT_OK){
+            ArrayList<String> taskText = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            mTaskEdit.setText(taskText.get(0).toString());
+
+        }
     }
 
     @Override
